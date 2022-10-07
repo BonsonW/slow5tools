@@ -60,13 +60,14 @@ static void print_hdr(slow5_file_t* sp){
 static void print_sig(slow5_file_t* sp)
 {
     enum slow5_fmt fmt = SLOW5_FORMAT_BINARY;
-    enum slow5_press_method sig_press = SLOW5_COMPRESS_NONE;
+    slow5_press_method_t press_method = {SLOW5_COMPRESS_NONE,SLOW5_COMPRESS_NONE};
+    slow5_press_t *press = slow5_press_init(press_method);
     slow5_rec_t *rec = NULL; //slow5 record to be read
     int ret = 0;
 
     //iterate through the file until end
     while((ret = slow5_get_next(&rec,sp)) >= 0){
-        slow5_sig_print(rec, fmt, sig_press);
+        slow5_sig_print(rec, fmt, press);
     }
 
     if(ret != SLOW5_ERR_EOF){  //check if proper end of file has been reached
@@ -76,6 +77,7 @@ static void print_sig(slow5_file_t* sp)
 
     //free the SLOW5 record
     slow5_rec_free(rec);
+    slow5_press_free(press);
 }
 
 struct aux_print_param {
