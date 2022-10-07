@@ -24,6 +24,7 @@
     HELP_MSG_BATCH \
     "    --hdr              		  print the header only\n" \
     "    --rid              		  print the list of read ids only\n" \
+    "    --sig              		  print the raw signal values only\n" \
     HELP_MSG_HELP \
 
 extern int slow5tools_verbosity_level;
@@ -54,6 +55,29 @@ static void print_rid(slow5_file_t* sp){
 static void print_hdr(slow5_file_t* sp){
     slow5_press_method_t press_method = {SLOW5_COMPRESS_NONE,SLOW5_COMPRESS_NONE};
     slow5_hdr_print(sp->header,SLOW5_FORMAT_ASCII,press_method);
+}
+
+static void print_sig(slow5_file_t* sp)
+{
+    enum slow5_fmt fmt = SLOW5_FORMAT_BINARY;
+    slow5_press_method_t press_method = {SLOW5_COMPRESS_NONE,SLOW5_COMPRESS_NONE};
+    slow5_press_t *press = slow5_press_init(press_method);
+    slow5_rec_t *rec = NULL; //slow5 record to be read
+    int ret = 0;
+
+    //iterate through the file until end
+    while((ret = slow5_get_next(&rec,sp)) >= 0){
+        slow5_sig_print(rec, fmt, press);
+    }
+
+    if(ret != SLOW5_ERR_EOF){  //check if proper end of file has been reached
+        fprintf(stderr,"Error in slow5_get_next. Error code %d\n",ret);
+        exit(EXIT_FAILURE);
+    }
+
+    //free the SLOW5 record
+    slow5_rec_free(rec);
+    slow5_press_free(press);
 }
 
 struct aux_print_param {
@@ -405,6 +429,7 @@ int skim_main(int argc, char **argv, struct program_meta *meta){
             {"hdr", no_argument, NULL, 0 }, //2
             {"threads",required_argument,  NULL, 't' }, //3
             {"batchsize",required_argument, NULL, 'K'}, //4
+            {"sig", no_argument, NULL, 0 }, //5
             {NULL, 0, NULL, 0 }
     };
 
@@ -416,6 +441,7 @@ int skim_main(int argc, char **argv, struct program_meta *meta){
     int opt;
     int rid=0;
     int hdr=0;
+    int sig=0;
 
     // Parse options
     while ((opt = getopt_long(argc, argv, "ht:K:", long_opts, &longindex)) != -1) {
@@ -442,6 +468,9 @@ int skim_main(int argc, char **argv, struct program_meta *meta){
                         break;
                     case 2:
                         hdr = 2;
+                        break;
+                    case 5:
+                        sig = 5;
                         break;
                     default:
                         fprintf(stderr, HELP_SMALL_MSG, argv[0]);
@@ -496,8 +525,9 @@ int skim_main(int argc, char **argv, struct program_meta *meta){
     }
     else if (hdr){
         print_hdr(slow5File);
-    }
-    else {
+    } else if (sig) {
+        print_sig(slow5File);
+    } else {
         skim_data_parallel(slow5File, user_opts.num_threads, user_opts.read_id_batch_capacity);
     }
 
